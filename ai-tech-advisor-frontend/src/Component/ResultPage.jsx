@@ -1,42 +1,86 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const ResultPage = () => {
     const navigate = useNavigate();
+    const location = useLocation();
+    const { recommendation } = location.state || {};
 
-    // Mock recommendations data
-    const recommendations = [
-        {
-            category: 'Frontend',
-            technology: 'React with Vite',
-            explanation: 'React is the most popular library for building dynamic interfaces, and Vite provides a lightning-fast development experience perfect for modern web apps.',
-            icon: '⚛️'
-        },
-        {
-            category: 'Backend',
-            technology: 'Node.js (Express)',
-            explanation: 'Highly scalable and efficient for handling real-time features like chat and push notifications, using a single language (JavaScript) across the stack.',
-            icon: '🟢'
-        },
-        {
-            category: 'Database',
-            technology: 'PostgreSQL',
-            explanation: 'A powerful, open-source relational database that ensures data integrity and supports complex queries as your project grows.',
-            icon: '🐘'
-        },
-        {
-            category: 'APIs',
-            technology: 'RESTful API with Swagger',
-            explanation: 'Provides a standard, well-documented way for different parts of your system to communicate, making it easy to integrate with mobile or third-party apps.',
-            icon: '🔌'
-        },
-        {
-            category: 'Hosting & DevOps',
-            technology: 'Vercel / AWS Amplify',
-            explanation: 'Offers seamless deployment, automatic scaling, and global content delivery, allowing you to focus on code rather than infrastructure.',
-            icon: '☁️'
+    if (!recommendation) {
+        return (
+            <div className="section container text-center">
+                <h2>No recommendation data found.</h2>
+                <button className="btn-primary" onClick={() => navigate('/analyze')}>Go Back</button>
+            </div>
+        );
+    }
+
+    // Mapping AI JSON keys to readable categories and icons
+    const categoryMap = {
+        "Frontend technology": { name: "Frontend", icon: "⚛️" },
+        "Backend technology": { name: "Backend", icon: "🟢" },
+        "Database": { name: "Database", icon: "🐘" },
+        "Required APIs": { name: "APIs", icon: "🔌" },
+        "Deployment / Hosting platform": { name: "Hosting & DevOps", icon: "☁️" },
+        "Architecture type": { name: "Architecture", icon: "🏗️" }
+    };
+
+    // If it's a raw error/unparsed response
+    if (recommendation.error) {
+        return (
+            <div className="section container">
+                <header style={{ textAlign: 'center', marginBottom: '4rem' }}>
+                    <h1 className="text-gradient">Analysis Result</h1>
+                    <p style={{ color: 'red' }}>Note: The AI response wasn't in the expected JSON format.</p>
+                </header>
+                <div className="card" style={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+                    {recommendation.raw}
+                </div>
+                <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+                    <button className="btn-primary" onClick={() => navigate('/analyze')}>Try Again</button>
+                </div>
+            </div>
+        );
+    }
+
+    // Prepare items for display
+    const recommendationItems = Object.keys(categoryMap).map(key => {
+        const item = categoryMap[key];
+
+        // Find the index in the numbered list (1-indexed for the prompt)
+        const keysToTry = Object.keys(categoryMap);
+        const index = keysToTry.indexOf(key) + 1;
+        const numberedKey = `${index}. ${key}`;
+
+        // Handle case sensitivity, numbered keys, and potential nested structures
+        const value = recommendation[key] ||
+            recommendation[numberedKey] ||
+            recommendation[key.toLowerCase()] ||
+            recommendation[key.replace(/ /g, '_')] ||
+            "N/A";
+
+        let justification = "";
+        if (recommendation.justifications) {
+            justification = recommendation.justifications[key] ||
+                recommendation.justifications[numberedKey] ||
+                recommendation.justifications[key.toLowerCase()];
+        } else if (recommendation["Brief justification for each recommendation"]) {
+            justification = recommendation["Brief justification for each recommendation"][key] ||
+                recommendation["Brief justification for each recommendation"][numberedKey] ||
+                recommendation["Brief justification for each recommendation"][key.toLowerCase()] || "";
+        } else if (recommendation["7. Brief justification for each recommendation"]) {
+            justification = recommendation["7. Brief justification for each recommendation"][key] ||
+                recommendation["7. Brief justification for each recommendation"][numberedKey] ||
+                recommendation["7. Brief justification for each recommendation"][key.toLowerCase()] || "";
         }
-    ];
+
+        return {
+            category: item.name,
+            technology: value,
+            explanation: justification,
+            icon: item.icon
+        };
+    });
 
     return (
         <div className="section container">
@@ -44,7 +88,7 @@ const ResultPage = () => {
                 <header style={{ textAlign: 'center', marginBottom: '4rem' }}>
                     <h1 className="text-gradient" style={{ fontSize: '3rem', marginBottom: '1rem' }}>Your Recommended Tech Stack</h1>
                     <p style={{ color: 'var(--text-muted)', fontSize: '1.2rem' }}>
-                        Based on your requirements, we've curated the most efficient and scalable technology stack for your project.
+                        Architected by Archi Advisor: A tailored solution based on your engineering requirements.
                     </p>
                 </header>
 
@@ -54,7 +98,7 @@ const ResultPage = () => {
                     gap: '2rem',
                     marginBottom: '4rem'
                 }}>
-                    {recommendations.map((item, index) => (
+                    {recommendationItems.map((item, index) => (
                         <div key={index} className="card" style={{
                             display: 'flex',
                             flexDirection: 'column',
@@ -66,9 +110,11 @@ const ResultPage = () => {
                                 <h3 style={{ margin: 0, color: 'var(--primary)' }}>{item.category}</h3>
                             </div>
                             <h4 style={{ margin: 0, fontSize: '1.3rem' }}>{item.technology}</h4>
-                            <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.6', margin: 0 }}>
-                                {item.explanation}
-                            </p>
+                            {item.explanation && (
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.6', margin: 0 }}>
+                                    {item.explanation}
+                                </p>
+                            )}
                         </div>
                     ))}
                 </div>

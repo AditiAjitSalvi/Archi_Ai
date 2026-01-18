@@ -1,5 +1,45 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { useMutation } from '@tanstack/react-query';
+
+const SYSTEM_PROMPT = `You are an AGI-style Software Architecture Advisor Agent.
+
+Your responsibility is to analyze project requirements and
+recommend an optimal technical architecture.
+
+You must behave like:
+- A senior software architect
+- A system designer
+- A technology consultant
+
+You do NOT generate code unless explicitly asked.
+Your focus is on architecture, technology selection, APIs,
+databases, scalability, and deployment decisions.
+
+You must reason step-by-step internally,
+but return only structured, concise, and validated output.
+Analyze the given project requirements and recommend
+the best technical stack.
+
+Your output must include:
+1. Frontend technology
+2. Backend technology
+3. Database
+4. Required APIs
+5. Deployment / Hosting platform
+6. Architecture type (Monolith / Microservices / Serverless)
+7. Brief justification for each recommendation
+
+Constraints:
+- Prefer industry-standard and beginner-friendly tools
+- Optimize for scalability, performance, and cost
+- Avoid overengineering
+- If multiple options are possible, choose the most practical one
+
+IMPORTANT:
+Return the final answer strictly in JSON format.
+Do not include explanations outside JSON.`;
 
 const RecommendationForm = () => {
     const navigate = useNavigate();
@@ -14,6 +54,38 @@ const RecommendationForm = () => {
     });
 
     const [showFeatures, setShowFeatures] = useState(false);
+
+    const mutation = useMutation({
+        mutationFn: async (finalData) => {
+            const projectDescription = `
+                Project Title: ${finalData.projectTitle}
+                Project Type: ${finalData.projectType}
+                User Count: ${finalData.userCount}
+                Features: ${finalData.features.join(', ')}
+                Budget: ${finalData.budget}
+                Scalability: ${finalData.scalability}
+            `;
+
+            const response = await axios.post('http://127.0.0.1:9900/chat', {
+                model_name: "llama-3.3-70b-versatile",
+                model_provider: "Groq",
+                system_prompt: SYSTEM_PROMPT,
+                messages: [projectDescription],
+                allow_search: true
+            });
+
+            const aiResponse = response.data.response;
+            try {
+                return JSON.parse(aiResponse);
+            } catch (e) {
+                console.error("Failed to parse AI response as JSON:", aiResponse);
+                return { error: "Failed to parse AI response", raw: aiResponse };
+            }
+        },
+        onSuccess: (data) => {
+            navigate('/results', { state: { recommendation: data } });
+        }
+    });
 
     const commonFeatures = [
         'Login',
@@ -50,7 +122,7 @@ const RecommendationForm = () => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        // Prepare data for submission, including the custom feature if "Other" is selected
+
         const finalData = { ...formData };
         if (formData.features.includes('Other') && formData.customOtherFeature) {
             finalData.features = [...formData.features.filter(f => f !== 'Other'), formData.customOtherFeature];
@@ -59,11 +131,7 @@ const RecommendationForm = () => {
         }
         delete finalData.customOtherFeature;
 
-        console.log('Form Data Submitted:', finalData);
-        // Simulate a small delay for "AI Analysis" then navigate
-        setTimeout(() => {
-            navigate('/results');
-        }, 500);
+        mutation.mutate(finalData);
     };
 
     return (
@@ -257,9 +325,20 @@ const RecommendationForm = () => {
                         />
                     </div>
 
+                    {mutation.isError && (
+                        <div style={{ color: 'red', textAlign: 'center', marginBottom: '1rem' }}>
+                            Failed to get recommendation: {mutation.error.message}
+                        </div>
+                    )}
+
                     <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                        <button type="submit" className="btn-primary" style={{ minWidth: '250px' }}>
-                            Analyze Project
+                        <button
+                            type="submit"
+                            className="btn-primary"
+                            style={{ minWidth: '250px' }}
+                            disabled={mutation.isPending}
+                        >
+                            {mutation.isPending ? 'Analyzing...' : 'Analyze Project'}
                         </button>
                     </div>
                 </form>
