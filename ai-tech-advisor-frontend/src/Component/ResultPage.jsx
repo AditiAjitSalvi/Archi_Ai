@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import DiagramRenderer from './DiagramRenderer';
 
 const ResultPage = () => {
     const navigate = useNavigate();
@@ -15,17 +16,37 @@ const ResultPage = () => {
         );
     }
 
-    // Mapping AI JSON keys to readable categories and icons
-    const categoryMap = {
-        "Frontend technology": { name: "Frontend", icon: "⚛️" },
-        "Backend technology": { name: "Backend", icon: "🟢" },
-        "Database": { name: "Database", icon: "🐘" },
-        "Required APIs": { name: "APIs", icon: "🔌" },
-        "Deployment / Hosting platform": { name: "Hosting & DevOps", icon: "☁️" },
-        "Architecture type": { name: "Architecture", icon: "🏗️" }
-    };
+    // Handle Rejection
+    if (recommendation.validation_status === 'rejected') {
+        return (
+            <div className="section container">
+                <header style={{ textAlign: 'center', marginBottom: '4rem' }}>
+                    <h1 className="text-gradient" style={{ color: '#ef4444' }}>Request Rejected</h1>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '1.2rem' }}>
+                        {recommendation.reason || "The architect has determined this request is outside project scope."}
+                    </p>
+                </header>
 
-    // If it's a raw error/unparsed response
+                <div className="card" style={{ borderLeft: '4px solid #ef4444', marginBottom: '2rem' }}>
+                    <h3 style={{ color: '#ef4444' }}>Technical Explanation</h3>
+                    <p style={{ lineHeight: '1.6' }}>{recommendation.technical_explanation}</p>
+                </div>
+
+                {recommendation.recommended_alternative && (
+                    <div className="card" style={{ borderLeft: '4px solid #10b981' }}>
+                        <h3 style={{ color: '#10b981' }}>Recommended Alternative</h3>
+                        <p style={{ lineHeight: '1.6' }}>{recommendation.recommended_alternative}</p>
+                    </div>
+                )}
+
+                <div style={{ textAlign: 'center', marginTop: '3rem' }}>
+                    <button className="btn-primary" onClick={() => navigate('/analyze')}>Refine Requirements</button>
+                </div>
+            </div>
+        );
+    }
+
+    // Handle Error/Unparsed Response
     if (recommendation.error) {
         return (
             <div className="section container">
@@ -43,90 +64,97 @@ const ResultPage = () => {
         );
     }
 
-    // Prepare items for display
-    const recommendationItems = Object.keys(categoryMap).map(key => {
-        const item = categoryMap[key];
+    // Prepare Tech Stack items
+    const techStack = recommendation.tech_stack_summary || {};
+    const icons = {
+        Frontend: "⚛️",
+        Backend: "🟢",
+        Database: "🐘",
+        APIs: "🔌",
+        Hosting: "☁️"
+    };
 
-        // Find the index in the numbered list (1-indexed for the prompt)
-        const keysToTry = Object.keys(categoryMap);
-        const index = keysToTry.indexOf(key) + 1;
-        const numberedKey = `${index}. ${key}`;
-
-        // Handle case sensitivity, numbered keys, and potential nested structures
-        const value = recommendation[key] ||
-            recommendation[numberedKey] ||
-            recommendation[key.toLowerCase()] ||
-            recommendation[key.replace(/ /g, '_')] ||
-            "N/A";
-
-        let justification = "";
-        if (recommendation.justifications) {
-            justification = recommendation.justifications[key] ||
-                recommendation.justifications[numberedKey] ||
-                recommendation.justifications[key.toLowerCase()];
-        } else if (recommendation["Brief justification for each recommendation"]) {
-            justification = recommendation["Brief justification for each recommendation"][key] ||
-                recommendation["Brief justification for each recommendation"][numberedKey] ||
-                recommendation["Brief justification for each recommendation"][key.toLowerCase()] || "";
-        } else if (recommendation["7. Brief justification for each recommendation"]) {
-            justification = recommendation["7. Brief justification for each recommendation"][key] ||
-                recommendation["7. Brief justification for each recommendation"][numberedKey] ||
-                recommendation["7. Brief justification for each recommendation"][key.toLowerCase()] || "";
-        }
-
-        return {
-            category: item.name,
-            technology: value,
-            explanation: justification,
-            icon: item.icon
-        };
-    });
+    const stackItems = Object.keys(techStack).map(key => ({
+        category: key,
+        technology: techStack[key],
+        icon: icons[key] || "🛠️"
+    }));
 
     return (
         <div className="section container">
             <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
                 <header style={{ textAlign: 'center', marginBottom: '4rem' }}>
-                    <h1 className="text-gradient" style={{ fontSize: '3rem', marginBottom: '1rem' }}>Your Recommended Tech Stack</h1>
+                    <h1 className="text-gradient" style={{ fontSize: '3rem', marginBottom: '1rem' }}>Architecture Approved</h1>
                     <p style={{ color: 'var(--text-muted)', fontSize: '1.2rem' }}>
-                        Architected by Archi Advisor: A tailored solution based on your engineering requirements.
+                        {recommendation.validation_notes || "Your architecture has been validated for production standards."}
                     </p>
+                    <div style={{ marginTop: '1rem' }}>
+                        <span style={{
+                            padding: '0.4rem 1rem',
+                            borderRadius: '2rem',
+                            backgroundColor: 'var(--bg-secondary)',
+                            fontSize: '0.9rem',
+                            fontWeight: '600',
+                            border: '1px solid var(--border-color)'
+                        }}>
+                            Pattern: {recommendation.architecture_type?.toUpperCase()}
+                        </span>
+                    </div>
                 </header>
 
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-                    gap: '2rem',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                    gap: '1.5rem',
                     marginBottom: '4rem'
                 }}>
-                    {recommendationItems.map((item, index) => (
+                    {stackItems.map((item, index) => (
                         <div key={index} className="card" style={{
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: '1rem',
+                            gap: '0.5rem',
                             borderLeft: `4px solid var(--primary)`
                         }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                <span style={{ fontSize: '2rem' }}>{item.icon}</span>
-                                <h3 style={{ margin: 0, color: 'var(--primary)' }}>{item.category}</h3>
+                                <span style={{ fontSize: '1.5rem' }}>{item.icon}</span>
+                                <h4 style={{ margin: 0, color: 'var(--primary)' }}>{item.category}</h4>
                             </div>
-                            <h4 style={{ margin: 0, fontSize: '1.3rem' }}>{item.technology}</h4>
-                            {item.explanation && (
-                                <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.6', margin: 0 }}>
-                                    {item.explanation}
-                                </p>
-                            )}
+                            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>{item.technology}</h3>
                         </div>
                     ))}
                 </div>
 
-                <div style={{ textAlign: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '3rem' }}>
-                    <h3 style={{ marginBottom: '1.5rem' }}>Want to try another project?</h3>
+                {recommendation.diagram_format && (
+                    <div style={{ display: 'grid', gap: '3rem' }}>
+                        {recommendation.diagram_format.mermaid && (
+                            <DiagramRenderer
+                                title="System Architecture"
+                                diagramCode={recommendation.diagram_format.mermaid}
+                            />
+                        )}
+                        {recommendation.diagram_format.c4_model && (
+                            <DiagramRenderer
+                                title="C4 Model (Container View)"
+                                diagramCode={recommendation.diagram_format.c4_model}
+                            />
+                        )}
+                        {recommendation.diagram_format.deployment_view && (
+                            <DiagramRenderer
+                                title="Deployment Architecture"
+                                diagramCode={recommendation.diagram_format.deployment_view}
+                            />
+                        )}
+                    </div>
+                )}
+
+                <div style={{ textAlign: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '3rem', marginTop: '4rem' }}>
+                    <h3 style={{ marginBottom: '1.5rem' }}>Ready for a new design?</h3>
                     <button
                         className="btn-primary"
                         onClick={() => navigate('/analyze')}
                         style={{ padding: '1rem 2.5rem' }}
                     >
-                        Analyze Another Project
+                        New Analysis
                     </button>
                 </div>
             </div>
