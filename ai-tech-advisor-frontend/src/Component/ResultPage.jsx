@@ -124,7 +124,8 @@ const ResultPage = () => {
                     ))}
                 </div>
 
-                {recommendation.diagram_format && (
+                {/* Temporarily commented out diagram rendering to avoid errors */}
+                {/* {recommendation.diagram_format && (
                     <div style={{ display: 'grid', gap: '3rem' }}>
                         {recommendation.diagram_format.mermaid && (
                             <DiagramRenderer
@@ -145,7 +146,7 @@ const ResultPage = () => {
                             />
                         )}
                     </div>
-                )}
+                )} */}
 
                 <div style={{ textAlign: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '3rem', marginTop: '4rem' }}>
                     <h3 style={{ marginBottom: '1.5rem' }}>Ready for a new design?</h3>
